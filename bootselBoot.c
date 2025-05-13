@@ -19,7 +19,6 @@ void    logcallback(libusb_context *ctx, enum libusb_log_level level, const char
 // regular flash boot
 #define RESET_REQUEST_FLASH 0x02
 
-
 int main(int argc, const char * argv[])
 {
     uint8_t     request = RESET_REQUEST_BOOTSEL;
@@ -61,7 +60,9 @@ int main(int argc, const char * argv[])
     int interface_number = 2;
     ret = libusb_claim_interface(handle, interface_number);
     if (ret != 0) {
-        fprintf(stderr, "Pico device found has no interface#2. Already BOOTSEL mode?\n");
+        fprintf(stderr,
+            "Pico device VID/PID 0x%04x/0x%0xx found, but does not have USB interface #2.\n",
+            vendor_id, product_ids[i].id);
         libusb_exit(NULL);
         return EX_PROTOCOL;
     }
@@ -76,9 +77,5 @@ int main(int argc, const char * argv[])
     //printf("return value from control transfer = %d\n", ret);
     libusb_exit(NULL);
     
-    
     return EX_OK;
 }
-
-
-
