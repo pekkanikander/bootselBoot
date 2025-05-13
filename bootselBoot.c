@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <libusb.h>
+#include <sysexits.h>
 
 void    logcallback(libusb_context *ctx, enum libusb_log_level level, const char *str)
 {
@@ -37,12 +38,12 @@ int main(int argc, const char * argv[])
                 fprintf(stderr, "\t$ %s B[OOTSEL] to reset to BOOTSEL mode.\n", argv[0]);
                 fprintf(stderr, "\t$ %s F[LASH] to reset to regular boot mode.\n", argv[0]);
                 fprintf(stderr, "\twith no argument means B[OOTSEL] specified.\n");
-                return 0;
+                return EX_OK;
         }
     }
     int ret = libusb_init(NULL);
     if (ret != 0) {
-        return -1;
+        return EX_IOERR;
     }
     //  libusb_set_log_cb(NULL, logcallback, LIBUSB_LOG_CB_GLOBAL);
     
@@ -54,7 +55,7 @@ int main(int argc, const char * argv[])
     if (handle == NULL) {
         fprintf(stderr, "No pico device available or a device has no standard pico_stdio_usb module.\n");
         libusb_exit(NULL);
-        return(-1);
+        return EX_UNAVAILABLE;
     }
     
     int interface_number = 2;
@@ -62,7 +63,7 @@ int main(int argc, const char * argv[])
     if (ret != 0) {
         fprintf(stderr, "Pico device found has no interface#2. Already BOOTSEL mode?\n");
         libusb_exit(NULL);
-        return(-1);
+        return EX_PROTOCOL;
     }
     
     uint8_t     reqtype = (0 << 6)  //  standard request host to device
@@ -76,7 +77,7 @@ int main(int argc, const char * argv[])
     libusb_exit(NULL);
     
     
-    return 0;
+    return EX_OK;
 }
 
 
