@@ -9,6 +9,27 @@
 #include <libusb.h>
 #include <sysexits.h>
 
+#ifndef ARRAY_SIZE
+#  define ARRAY_SIZE(a)  (sizeof(a) / sizeof((a)[0]))
+#endif
+
+enum usb_type { UF2, CMSIS, PYTHON, CDC, HUB };
+
+/* See https://github.com/raspberrypi/usb-pid */
+const uint16_t vendor_id = 0x2E8A;
+const struct { uint16_t id; enum usb_type type; } product_ids[] = {
+    { 0x0003, UF2    }, /* RP2040 UF2 bootloader (mass-storage) */
+    { 0x0004, CMSIS  }, /* PicoProbe (CMSIS-DAP debug probe) */
+    { 0x0005, PYTHON }, /* Pico MicroPython firmware (CDC serial) */
+    { 0x0009, CDC    }, /* Pico SDK CDC-UART */
+    { 0x000A, CDC    }, /* Pico SDK CDC-UART (alternate RP2040) */
+    { 0x000B, PYTHON }, /* Pico CircuitPython firmware */
+    { 0x000C, CMSIS  }, /* RP2040 CMSIS-DAP debug adapter */
+    { 0x000D, HUB    }, /* USB3HUB — USB2-hub function */
+    { 0x000E, HUB    }, /* USB3HUB — USB3-hub function */
+    { 0x000F, UF2    }, /* RP2350 UF2 bootloader */
+};
+
 void    logcallback(libusb_context *ctx, enum libusb_log_level level, const char *str)
 {
     fprintf(stderr, "level%1d: %s\n", level, str);
@@ -46,15 +67,37 @@ int main(int argc, const char * argv[])
     }
     //  libusb_set_log_cb(NULL, logcallback, LIBUSB_LOG_CB_GLOBAL);
     
-    libusb_device_handle    *handle;
-    uint16_t    vendor_id = 0x2E8A;
-    uint16_t    product_id = 0x000A;
+    libusb_device_handle    *handle = NULL;
 
-    handle = libusb_open_device_with_vid_pid(NULL, vendor_id, product_id);
+    int i = 0;
+    while (i < ARRAY_SIZE(product_ids) && handle == NULL) {
+        handle = libusb_open_device_with_vid_pid(NULL, vendor_id, product_ids[i].id);
+        if (handle != NULL)
+            break;
+        i++;
+    }
     if (handle == NULL) {
         fprintf(stderr, "No pico device available or a device has no standard pico_stdio_usb module.\n");
         libusb_exit(NULL);
         return EX_UNAVAILABLE;
+    }
+    switch (product_ids[i].type) {
+    case CDC:
+        /* libusb based firmware, proceed to reboot */
+        break;
+    case UF2:
+        /* Already in UF2 mode, nothing to do */
+        libusb_exit(NULL);
+        return EX_OK;
+    case CMSIS:
+    case PYTHON:
+    case HUB:
+    default:
+        fprintf(stderr,
+            "Pico device VID/PID %04x/%04x found, but does not have a known pico_stdio_usb module.\n",
+            vendor_id, product_ids[i].id);
+        libusb_exit(NULL);
+        return EX_TEMPFAIL;
     }
     
     int interface_number = 2;
